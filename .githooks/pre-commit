@@ -2,12 +2,12 @@
 
 tput setaf 3; echo "formatting code before committing"
 
-## this will retrieve all of the .go files that have been 
+## this will retrieve all of the .rs files that have been 
 ## changed since the last commit
-STAGED_GO_FILES=$(git diff --cached --name-only -- '*.go')
+STAGED_RS_FILES=$(git diff --cached --name-only -- '*.rs')
 
 ## we can check to see if this is empty
-if [[ $STAGED_GO_FILES == "" ]]; then
+if [[ $STAGED_RS_FILES == "" ]]; then
 tput setaf 4; echo "No Go Files to Update"
 ## otherwise we can do stuff with these changed go files
 else
