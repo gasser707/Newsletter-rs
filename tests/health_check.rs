@@ -1,11 +1,10 @@
 use once_cell::sync::Lazy;
-use secrecy::{ExposeSecret, Secret};
 use sqlx::{Connection, Executor, PgConnection, PgPool};
 use std::net::TcpListener;
 use uuid::Uuid;
 use zero2prod::{
     configuration,
-    telemetry::{get_subscriber, init_subscriber},
+    telemetry::{get_subscriber, init_subscriber}, email_client::EmailClient,
 };
 
 static TRACING: Lazy<()> = Lazy::new(|| {
@@ -31,11 +30,19 @@ async fn spawn_app() -> TestApp {
 
     let mut configuration =
         configuration::get_configuration().expect("Failed to read configuration.");
-    configuration.database.database_name = Uuid::new_v4().to_string();
+    configuration.database_config.database_name = Uuid::new_v4().to_string();
 
-    let connection_pool = configure_database(&configuration.database).await;
-    let server =
-        zero2prod::startup::run(listener, connection_pool.clone()).expect("Failed to run server");
+    let connection_pool = configure_database(&configuration.database_config).await;
+
+    let email_sender = configuration
+        .email_client_config
+        .sender()
+        .expect("Invalid email client sender");
+
+    let email_client = EmailClient::new(configuration.email_client_config.base_url, email_sender);
+
+    let server = zero2prod::startup::run(listener, connection_pool.clone(), email_client)
+        .expect("Failed to run server");
     let _ = tokio::spawn(server);
 
     TestApp {
@@ -72,9 +79,10 @@ pub async fn teardown_test_db(db_pool: &PgPool) {
         let configuration =
             configuration::get_configuration().expect("Failed to read configuration.");
 
-        let mut connection = PgConnection::connect_with(&configuration.database.without_db())
-            .await
-            .expect("Failed to connect to Postgres");
+        let mut connection =
+            PgConnection::connect_with(&configuration.database_config.without_db())
+                .await
+                .expect("Failed to connect to Postgres");
 
         connection
             .execute(format!(r#"DROP DATABASE "{}";"#, db_name).as_str())
@@ -138,7 +146,10 @@ async fn subscribe_returns_a_400_when_data_is_missing_or_invalid() {
         ("name=le%20guin", "missing the email"),
         ("email=ursula_le_guin%40gmail.com", "missing the name"),
         ("", "missing both name and email"),
-        ("name={&email=<@gmail.com", "contains invalid email and name")
+        (
+            "name={&email=<@gmail.com",
+            "contains invalid email and name",
+        ),
     ];
     for (invalid_body, error_message) in test_cases {
         // Act
