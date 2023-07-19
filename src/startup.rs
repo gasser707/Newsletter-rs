@@ -17,7 +17,7 @@ pub fn run(listener: TcpListener, db_connection_pool: PgPool) -> Result<Server, 
             .route("/subscriptions", web::post().to(subscribe))
             // Register the connection as part of the application state
             // Data uses an Arc
-            .app_data(web::Data::clone(&db_pool))
+            .app_data(db_pool.clone())
     })
     .listen(listener)?
     .run();

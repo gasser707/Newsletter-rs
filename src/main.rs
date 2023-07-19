@@ -1,5 +1,4 @@
 mod configuration;
-use secrecy::ExposeSecret;
 use sqlx::postgres::PgPoolOptions;
 use std::net::TcpListener;
 
