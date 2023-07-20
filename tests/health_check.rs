@@ -4,7 +4,8 @@ use std::net::TcpListener;
 use uuid::Uuid;
 use zero2prod::{
     configuration,
-    telemetry::{get_subscriber, init_subscriber}, email_client::EmailClient,
+    email_client::EmailClient,
+    telemetry::{get_subscriber, init_subscriber},
 };
 
 static TRACING: Lazy<()> = Lazy::new(|| {
@@ -38,8 +39,14 @@ async fn spawn_app() -> TestApp {
         .email_client_config
         .sender()
         .expect("Invalid email client sender");
+    let timeout = configuration.email_client_config.timeout();
 
-    let email_client = EmailClient::new(configuration.email_client_config.base_url, email_sender);
+    let email_client = EmailClient::new(
+        configuration.email_client_config.base_url,
+        email_sender,
+        configuration.email_client_config.authorization_token,
+        timeout
+    );
 
     let server = zero2prod::startup::run(listener, connection_pool.clone(), email_client)
         .expect("Failed to run server");
