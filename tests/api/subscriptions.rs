@@ -1,43 +1,34 @@
 use crate::helpers::{spawn_app, teardown_test_db};
-
 #[tokio::test]
 async fn subscribe_returns_a_200_for_valid_form_data() {
     // Arrange
-    let test_app = spawn_app().await;
-    // Act
+    let app = spawn_app().await;
     let body = "name=le%20guin&email=ursula_le_guin%40gmail.com";
-    let response = test_app.post_subscriptions(body.into()).await;
+    // Act
+    let response = app.post_subscriptions(body.into()).await;
     // Assert
     assert_eq!(200, response.status().as_u16());
-
     let saved = sqlx::query!("SELECT email, name FROM subscriptions",)
-        .fetch_one(&test_app.db_pool)
+        .fetch_one(&app.db_pool)
         .await
         .expect("Failed to fetch saved subscription.");
-
     assert_eq!(saved.email, "ursula_le_guin@gmail.com");
     assert_eq!(saved.name, "le guin");
 
-    teardown_test_db(&test_app.db_pool).await;
+    teardown_test_db(&app.db_pool).await;
 }
-
 #[tokio::test]
-async fn subscribe_returns_a_400_when_data_is_missing_or_invalid() {
+async fn subscribe_returns_a_400_when_data_is_missing() {
     // Arrange
-    let test_app = spawn_app().await;
+    let app = spawn_app().await;
     let test_cases = vec![
         ("name=le%20guin", "missing the email"),
         ("email=ursula_le_guin%40gmail.com", "missing the name"),
         ("", "missing both name and email"),
-        (
-            "name={&email=<@gmail.com",
-            "contains invalid email and name",
-        ),
     ];
     for (invalid_body, error_message) in test_cases {
         // Act
-        let response = test_app.post_subscriptions(invalid_body.into()).await;
-
+        let response = app.post_subscriptions(invalid_body.into()).await;
         // Assert
         assert_eq!(
             400,
@@ -47,4 +38,28 @@ async fn subscribe_returns_a_400_when_data_is_missing_or_invalid() {
             error_message
         );
     }
+    teardown_test_db(&app.db_pool).await;
+
+}
+#[tokio::test]
+async fn subscribe_returns_a_400_when_fields_are_present_but_invalid() {
+    // Arrange
+    let app = spawn_app().await;
+    let test_cases = vec![
+        ("name=&email=ursula_le_guin%40gmail.com", "empty name"),
+        ("name=Ursula&email=", "empty email"),
+        ("name=Ursula&email=definitely-not-an-email", "invalid email"),
+    ];
+    for (body, description) in test_cases {
+        // Act
+        let response = app.post_subscriptions(body.into()).await;
+        assert_eq!(
+            400,
+            response.status().as_u16(),
+            "The API did not return a 400 Bad Request when the payload was {}.",
+            description
+        );
+    }
+    teardown_test_db(&app.db_pool).await;
+
 }

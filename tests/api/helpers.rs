@@ -1,10 +1,8 @@
-use std::net::TcpListener;
-
 use once_cell::sync::Lazy;
 use sqlx::{Connection, Executor, PgConnection, PgPool};
 use uuid::Uuid;
 use zero2prod::configuration::{get_configuration, DatabaseSettings};
-use zero2prod::startup::build;
+use zero2prod::startup::Application;
 use zero2prod::telemetry::{get_subscriber, init_subscriber};
 
 static TRACING: Lazy<()> = Lazy::new(|| {
@@ -48,20 +46,14 @@ pub async fn spawn_app() -> TestApp {
     // Create and migrate the database
     let db_connection_pool = configure_database(&configuration.database).await;
 
-    let address = format!(
-        "{}:{}",
-        configuration.application.host, configuration.application.port
-    );
-    let listener = TcpListener::bind(address).expect("Failed to bind port");
-    let port = listener.local_addr().unwrap().port();
-
-    // Launch the application as a background task
-    let server = build(configuration, listener)
+    let application = Application::build(configuration, db_connection_pool.clone())
         .await
         .expect("Failed to build application.");
-    let _ = tokio::spawn(server);
+    // Get the port before spawning the application
+    let address = format!("http://127.0.0.1:{}", application.port());
+    let _ = tokio::spawn(application.run_until_stopped());
     TestApp {
-        address: format!("http://127.0.0.1:{}", port),
+        address,
         db_pool: db_connection_pool,
     }
 }

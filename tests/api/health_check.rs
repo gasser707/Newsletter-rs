@@ -1,4 +1,4 @@
-use crate::helpers::spawn_app;
+use crate::helpers::{spawn_app, teardown_test_db};
 #[tokio::test]
 async fn health_check_works() {
     // Arrange
@@ -15,4 +15,5 @@ async fn health_check_works() {
     // Assert
     assert!(response.status().is_success());
     assert_eq!(Some(0), response.content_length());
+    teardown_test_db(&test_app.db_pool).await;
 }

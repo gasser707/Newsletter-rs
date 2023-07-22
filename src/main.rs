@@ -1,8 +1,6 @@
-use std::net::TcpListener;
-
 use zero2prod::{
     configuration::get_configuration,
-    startup::build,
+    startup::{Application, get_connection_pool},
     telemetry::{get_subscriber, init_subscriber},
 };
 
@@ -12,12 +10,8 @@ async fn main() -> std::io::Result<()> {
     init_subscriber(subscriber);
 
     let configuration = get_configuration().expect("Failed to read configuration.");
-    let address = format!(
-        "{}:{}",
-        configuration.application.host, configuration.application.port
-    );
-    let listener = TcpListener::bind(address).expect("Failed to bind port");
-    let server = build(configuration, listener).await?;
-    server.await?;
+    let connection_pool = get_connection_pool(&configuration.database);
+    let application = Application::build(configuration, connection_pool).await?;
+    application.run_until_stopped().await?;
     Ok(())
 }
