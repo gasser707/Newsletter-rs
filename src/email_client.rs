@@ -155,7 +155,6 @@ mod tests {
         let subject: String = subject();
         let content: String = content();
         Mock::given(any())
-            // Not a 200 anymore!
             .respond_with(ResponseTemplate::new(500))
             .expect(1)
             .mount(&mock_server)

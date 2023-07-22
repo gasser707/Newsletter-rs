@@ -1,9 +1,10 @@
 use crate::{
+    configuration::Settings,
     email_client::EmailClient,
     routes::{health_check, subscribe},
 };
 use actix_web::{dev::Server, web, App, HttpServer};
-use sqlx::PgPool;
+use sqlx::{postgres::PgPoolOptions, PgPool};
 use std::net::TcpListener;
 use tracing_actix_web::TracingLogger;
 
@@ -33,4 +34,27 @@ pub fn run(
     // No .await here!
     log::info!("Server is now running at {}", address);
     Ok(server)
+}
+
+pub async fn build(configuration: Settings, listener: TcpListener) -> std::io::Result<Server> {
+    let connection_pool = PgPoolOptions::new()
+        .acquire_timeout(std::time::Duration::from_secs(2))
+        // `connect_lazy_with` instead of `connect_lazy`
+        .connect_lazy_with(configuration.database.with_db());
+
+    let sender_email = configuration
+        .email_client
+        .sender()
+        .expect("Invalid email address");
+
+    let email_client_timeout = configuration.email_client.timeout();
+
+    let email_client = EmailClient::new(
+        configuration.email_client.base_url,
+        sender_email,
+        configuration.email_client.authorization_token,
+        email_client_timeout,
+    );
+
+    run(listener, connection_pool, email_client)
 }

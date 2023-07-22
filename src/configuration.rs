@@ -9,9 +9,9 @@ use sqlx::{
 
 #[derive(serde::Deserialize)]
 pub struct Settings {
-    pub database_config: DatabaseSettings,
-    pub application_config: ApplicationSettings,
-    pub email_client_config: EmailClientSettings,
+    pub database: DatabaseSettings,
+    pub application: ApplicationSettings,
+    pub email_client: EmailClientSettings,
 }
 
 #[derive(serde::Deserialize)]
