@@ -1,3 +1,5 @@
+use std::str::FromStr;
+
 use crate::domain::SubscriberEmail;
 
 use secrecy::{ExposeSecret, Secret};
@@ -7,16 +9,14 @@ use sqlx::{
     ConnectOptions,
 };
 
-#[derive(Clone)]
-#[derive(serde::Deserialize)]
+#[derive(Clone, serde::Deserialize)]
 pub struct Settings {
     pub database: DatabaseSettings,
     pub application: ApplicationSettings,
     pub email_client: EmailClientSettings,
 }
 
-#[derive(Clone)]
-#[derive(serde::Deserialize)]
+#[derive(Clone, serde::Deserialize)]
 pub struct EmailClientSettings {
     pub base_url: String,
     pub sender_email: String,
@@ -32,15 +32,14 @@ impl EmailClientSettings {
         std::time::Duration::from_millis(self.timeout_milliseconds)
     }
 }
-#[derive(Clone)]
-#[derive(serde::Deserialize)]
+#[derive(Clone, serde::Deserialize)]
 pub struct ApplicationSettings {
     #[serde(deserialize_with = "deserialize_number_from_string")]
     pub port: u16,
     pub host: String,
+    pub base_url: String,
 }
-#[derive(Clone)]
-#[derive(serde::Deserialize)]
+#[derive(Clone, serde::Deserialize)]
 pub struct DatabaseSettings {
     pub username: String,
     pub password: Secret<String>,
@@ -115,6 +114,22 @@ impl ToString for Environment {
         match self {
             Environment::Local => "local".into(),
             Environment::Production => "production".into(),
+        }
+    }
+}
+
+impl FromStr for Environment {
+    type Err = String;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        match s.to_lowercase().as_str() {
+            "local" => Ok(Environment::Local),
+            "production" => Ok(Environment::Production),
+            other => Err(format!(
+                "{} is not a supported environment. \
+                    Use either `local` or `production`.",
+                other
+            )),
         }
     }
 }
